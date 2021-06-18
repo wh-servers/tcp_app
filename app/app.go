@@ -7,9 +7,10 @@ import (
 	"github.com/wh-servers/tcp_app/socket"
 )
 
+var handlerMap = map[uint8]*Handler{}
+
 type App struct {
-	Socket     *socket.Socket
-	HandlerMap map[uint8]ProcessorFunc
+	Socket *socket.Socket
 }
 
 func NewApp() *App {
@@ -21,7 +22,6 @@ func (a *App) Init(conf config.Config) error {
 	if err != nil {
 		return err
 	}
-	err = a.initHandlerMap()
 	return err
 }
 
@@ -65,9 +65,4 @@ func (a *App) initSocket(conf config.Config) error {
 	err := newSocket.Init(conf.SocketOptions...)
 	a.Socket = newSocket
 	return err
-}
-
-func (a *App) initHandlerMap() error {
-	a.HandlerMap = make(map[byte]ProcessorFunc, 0)
-	return nil
 }

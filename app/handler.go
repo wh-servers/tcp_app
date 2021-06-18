@@ -17,7 +17,7 @@ type Handler struct {
 
 var handlerMtx = sync.Mutex{}
 
-func (a *App) RegisterHandler(handlers ...Handler) error {
+func (a *App) RegisterHandler(handlers ...*Handler) error {
 	for _, h := range handlers {
 		handlerMtx.Lock()
 		//reqType := reflect.TypeOf(h.Req)
@@ -25,7 +25,7 @@ func (a *App) RegisterHandler(handlers ...Handler) error {
 		/*todo: according to different reqType, to assign to different queues,
 		different queues need different worker number, important handler need more queues
 		*/
-		a.HandlerMap[h.CmdNo] = h.Processor
+		handlerMap[h.CmdNo] = h
 		handlerMtx.Unlock()
 	}
 	return nil
@@ -52,7 +52,9 @@ func (a *App) HandlerManager() error {
 	}
 	//reqData[0] is cmd number
 	//reqData[1:] is main msg
-	err = a.HandlerMap[reqData[0]](context.Background(), reqData[1:], &respData)
+	//todo: use worker to process handler
+	//e.g. worker(handlerMap[reqData[0]],reqData[1:], &respData)
+	err = handlerMap[reqData[0]].Processor(context.Background(), reqData[1:], &respData)
 	if err != nil {
 		return fmt.Errorf("process req err: ", err)
 	}

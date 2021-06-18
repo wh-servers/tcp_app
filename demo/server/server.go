@@ -23,14 +23,14 @@ func main() {
 	err = newApp.Init(configure)
 	fmt.Println("inited app, err: ", err)
 	err = newApp.RegisterHandler(
-		app.Handler{
+		&app.Handler{
 			//todo: cmdNo use proto enum
 			CmdNo:     uint8(1),
 			Processor: Mock_1_Process,
 			Req:       []byte{},
 			Resp:      []byte{},
 		},
-		app.Handler{
+		&app.Handler{
 			CmdNo:     uint8(2),
 			Processor: Mock_2_Process,
 			Req:       []byte{},
