@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"sync"
 )
 
 // ProcessorFunc is registered api handler
@@ -14,9 +15,18 @@ type Handler struct {
 	Resp      interface{}
 }
 
+var handlerMtx = sync.Mutex{}
+
 func (a *App) RegisterHandler(handlers ...Handler) error {
 	for _, h := range handlers {
+		handlerMtx.Lock()
+		//reqType := reflect.TypeOf(h.Req)
+		//respType := reflect.TypeOf(h.Resp)
+		/*todo: according to different reqType, to assign to different queues,
+		different queues need different worker number, important handler need more queues
+		*/
 		a.HandlerMap[h.CmdNo] = h.Processor
+		handlerMtx.Unlock()
 	}
 	return nil
 }
