@@ -1,23 +1,27 @@
 syntax = "proto3";
-package cmd;
+package app_pb;
 
 enum CmdNo {
-    mock_1 = 0;
-    mock_2 = 1;
+    mock_0 = 0;
+    mock_1 = 1;
+    mock_2 = 2;
 }
 
-message Mock_1_request {
-
+enum Errcode {
+    Normal = 0;
+    InternalErr = 1;
 }
 
-message Mock_1_response {
-
+message Header {
+    int32 Errcode = 1;
 }
 
-message Mock_2_request {
-
+message Mock2Request {
+    int32  Id = 1;
+    string Keyword = 2;
 }
 
-message Mock_2_response {
-
+message Mock2Response {
+    Header Header = 1;
+    string Keyword = 2;
 }

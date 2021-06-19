@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 
+	app_pb "github.com/wh-servers/tcp_app/gen"
 	"github.com/wh-servers/tcp_app/socket"
 )
 
@@ -23,7 +24,7 @@ func main() {
 	fmt.Println("socket dial target, err: ", err)
 	msg := "a msg from client"
 	msgByte := []byte(msg)
-	cmdNo := uint8(1)
+	cmdNo := uint8(app_pb.CmdNo_mock_0)
 	var req []byte
 	req = append(req, byte(cmdNo))
 	req = append(req, msgByte...)

@@ -6,6 +6,7 @@ import (
 
 	"github.com/wh-servers/tcp_app/app"
 	"github.com/wh-servers/tcp_app/config"
+	app_pb "github.com/wh-servers/tcp_app/gen"
 )
 
 var (
@@ -24,15 +25,14 @@ func main() {
 	fmt.Println("inited app, err: ", err)
 	err = newApp.RegisterHandler(
 		&app.Handler{
-			//todo: cmdNo use proto enum
-			CmdNo:     uint8(1),
-			Processor: Mock_1_Process,
+			CmdNo:     uint8(app_pb.CmdNo_mock_0),
+			Processor: Mock_0_Process,
 			Req:       []byte{},
 			Resp:      []byte{},
 		},
 		&app.Handler{
-			CmdNo:     uint8(2),
-			Processor: Mock_2_Process,
+			CmdNo:     uint8(app_pb.CmdNo_mock_1),
+			Processor: Mock_1_Process,
 			Req:       []byte{},
 			Resp:      []byte{},
 		},
