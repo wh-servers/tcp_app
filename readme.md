@@ -1,3 +1,4 @@
 - It is a tcp app framework, can generate your tcp app with multiple handlers, there is a demo inside.
     - request data structure: 1st byte is cmd number, from 2nd to end are main msg.
 - The socket design is base on package "https://golang.org/pkg/net"
+- no *pb.go file in the repo, can generate by cmd "protoc --go_out=. *.proto"
