@@ -3,7 +3,11 @@ package app
 import (
 	"context"
 	"fmt"
+	"math"
+	"reflect"
 	"sync"
+
+	"github.com/golang/protobuf/proto"
 )
 
 // ProcessorFunc is registered api handler
@@ -33,6 +37,57 @@ func (a *App) RegisterHandler(handlers ...*Handler) error {
 
 //distinguish different cmd and use different handler
 func (a *App) HandlerManager() error {
+	cmdNo, req, resp, err := a.unwrapMsg()
+	if err != nil {
+		return err
+	}
+	//todo: use worker to process handler. worker(handlerMap[reqData[0]],reqData[1:], &respData)
+	if handler, ok := handlerMap[cmdNo]; ok {
+		if err := handler.Processor(context.Background(), req, resp); err != nil {
+			return fmt.Errorf("process req err: ", err)
+		}
+	}
+	err = a.wrap(resp)
+	return err
+}
+
+func (a *App) unwrapMsg() (cmdNo uint8, req, resp proto.Message, err error) {
+	var msg []byte
+	if a.Socket == nil || len(a.Socket.ConnClientPool) < 1 {
+		return math.MaxUint8, nil, nil, fmt.Errorf("nil conn in app")
+	}
+	/*todo: find correct conn, now only consider one connection
+	now use the last conn
+	and no lock to the pool
+	*/
+	err = a.Socket.ConnClientPool[len(a.Socket.ConnClientPool)-1].Read(&msg)
+	if err != nil {
+		return math.MaxUint8, nil, nil, fmt.Errorf("read msg from conn err: ", err)
+	}
+	if len(msg) < 2 {
+		return math.MaxUint8, nil, nil, fmt.Errorf("no msg from conn")
+	}
+	cmdNo = msg[0]
+	//note: have to use reflect.Indirect()
+	reqNewValue := reflect.New(reflect.Indirect(reflect.ValueOf(handlerMap[cmdNo].Req)).Type()).Interface()
+	req, ok := reqNewValue.(proto.Message)
+	if ok {
+		//msg[0] is cmd number
+		//msg[1:] is main msg
+		err = proto.Unmarshal(msg[1:], req)
+		if err != nil {
+			return math.MaxUint8, nil, nil, fmt.Errorf("unmarshal req error")
+		}
+	}
+	respValue := reflect.New(reflect.Indirect(reflect.ValueOf(handlerMap[cmdNo].Resp)).Type()).Interface()
+	resp, ok = respValue.(proto.Message)
+	if !ok {
+		return math.MaxUint8, nil, nil, fmt.Errorf("parse resp type error")
+	}
+	return
+}
+
+func (a *App) wrap(msg proto.Message) error {
 	if a.Socket == nil || len(a.Socket.ConnClientPool) < 1 {
 		return fmt.Errorf("nil conn in app")
 	}
@@ -40,27 +95,13 @@ func (a *App) HandlerManager() error {
 	now use the last conn
 	and no lock to the pool
 	*/
-	conn := a.Socket.ConnClientPool[len(a.Socket.ConnClientPool)-1]
-	var reqData []byte
-	var respData []byte
-	err := conn.Read(&reqData)
+	respData, err := proto.Marshal(msg)
 	if err != nil {
 		return err
 	}
-	if len(reqData) < 2 {
-		return fmt.Errorf("no msg in conn")
-	}
-	//reqData[0] is cmd number
-	//reqData[1:] is main msg
-	//todo: use worker to process handler
-	//e.g. worker(handlerMap[reqData[0]],reqData[1:], &respData)
-	err = handlerMap[reqData[0]].Processor(context.Background(), reqData[1:], &respData)
+	err = a.Socket.ConnClientPool[len(a.Socket.ConnClientPool)-1].Write(respData)
 	if err != nil {
-		return fmt.Errorf("process req err: ", err)
-	}
-	err = conn.Write(respData)
-	if err != nil {
-		return fmt.Errorf("write res to conn err: ", err)
+		return fmt.Errorf("write msg to conn err: ", err)
 	}
 	return err
 }

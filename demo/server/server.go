@@ -36,6 +36,12 @@ func main() {
 			Req:       []byte{},
 			Resp:      []byte{},
 		},
+		&app.Handler{
+			CmdNo:     uint8(app_pb.CmdNo_mock_2),
+			Processor: Mock_2_Process,
+			Req:       &app_pb.Mock2Request{},
+			Resp:      &app_pb.Mock2Response{},
+		},
 	)
 	fmt.Println("registered hanlder, err: ", err)
 	err = newApp.Run(*addr)
