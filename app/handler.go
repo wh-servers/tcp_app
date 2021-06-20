@@ -68,25 +68,30 @@ func (a *App) unwrapMsg() (cmdNo uint8, req, resp interface{}, err error) {
 		return math.MaxUint8, nil, nil, fmt.Errorf("no msg from conn")
 	}
 	cmdNo = msg[0]
-	//note: have to use reflect.Indirect()
-	reqNewValue := reflect.New(reflect.Indirect(reflect.ValueOf(handlerMap[cmdNo].Req)).Type()).Interface()
-	req, ok := reqNewValue.(proto.Message)
-	if ok {
-		//msg[0] is cmd number
-		//msg[1:] is main msg
-		err = proto.Unmarshal(msg[1:], req.(proto.Message))
-		if err != nil {
-			return math.MaxUint8, nil, nil, fmt.Errorf("unmarshal req error")
+	var ok bool
+	if handler, exist := handlerMap[cmdNo]; exist {
+		//note: have to use reflect.Indirect()
+		reqNewValue := reflect.New(reflect.Indirect(reflect.ValueOf(handler.Req)).Type()).Interface()
+		req, ok = reqNewValue.(proto.Message)
+		if ok {
+			//msg[0] is cmd number
+			//msg[1:] is main msg
+			err = proto.Unmarshal(msg[1:], req.(proto.Message))
+			if err != nil {
+				return math.MaxUint8, nil, nil, fmt.Errorf("unmarshal req error")
+			}
+		} else { //default type: []byte
+			reqPointer := &[]byte{}
+			*reqPointer = msg[1:]
+			req = reqPointer
 		}
-	} else { //default type: []byte
-		reqPointer := &[]byte{}
-		*reqPointer = msg[1:]
-		req = reqPointer
-	}
-	respValue := reflect.New(reflect.Indirect(reflect.ValueOf(handlerMap[cmdNo].Resp)).Type()).Interface()
-	resp, ok = respValue.(proto.Message)
-	if !ok { //default *[]byte
-		resp = respValue.(*[]byte)
+		respValue := reflect.New(reflect.Indirect(reflect.ValueOf(handler.Resp)).Type()).Interface()
+		resp, ok = respValue.(proto.Message)
+		if !ok { //default *[]byte
+			resp = respValue.(*[]byte)
+		}
+	} else {
+		return math.MaxUint8, nil, nil, fmt.Errorf("no cmd registered")
 	}
 	return
 }

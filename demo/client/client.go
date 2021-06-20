@@ -38,6 +38,10 @@ func main() {
 		err = handler(uint8(*cmd), &req)
 		fmt.Println("req handler err: ", err)
 	}
+	if len(req) < 2 {
+		fmt.Println("no cmd registered")
+		return
+	}
 	err = skt.ConnClientSingle.Write(req)
 	fmt.Println("wrote req, err: ", err)
 	//receive from server
