@@ -27,14 +27,14 @@ func main() {
 		&app.Handler{
 			CmdNo:     uint8(app_pb.CmdNo_mock_0),
 			Processor: Mock_0_Process,
-			Req:       []byte{},
-			Resp:      []byte{},
+			Req:       &[]byte{},
+			Resp:      &[]byte{},
 		},
 		&app.Handler{
 			CmdNo:     uint8(app_pb.CmdNo_mock_1),
 			Processor: Mock_1_Process,
-			Req:       []byte{},
-			Resp:      []byte{},
+			Req:       &[]byte{},
+			Resp:      &[]byte{},
 		},
 		&app.Handler{
 			CmdNo:     uint8(app_pb.CmdNo_mock_2),

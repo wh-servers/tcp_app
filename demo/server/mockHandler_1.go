@@ -6,10 +6,10 @@ import (
 )
 
 func Mock_1_Process(ctx context.Context, reqData, respData interface{}) error {
-	req := reqData.([]byte)
+	req := reqData.(*[]byte)
 	resp := respData.(*[]byte)
-	fmt.Println("receive msg: ", string(req))
-	feedBack := "feed back from Mock_1 to client "
+	fmt.Println("receive msg: ", string(*req))
+	feedBack := "feed back from Mock_1 handler to client "
 	data := []byte(feedBack)
 	*resp = data
 	return nil

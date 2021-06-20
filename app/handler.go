@@ -47,11 +47,11 @@ func (a *App) HandlerManager() error {
 			return fmt.Errorf("process req err: ", err)
 		}
 	}
-	err = a.wrap(resp)
+	err = a.wrap(cmdNo, resp)
 	return err
 }
 
-func (a *App) unwrapMsg() (cmdNo uint8, req, resp proto.Message, err error) {
+func (a *App) unwrapMsg() (cmdNo uint8, req, resp interface{}, err error) {
 	var msg []byte
 	if a.Socket == nil || len(a.Socket.ConnClientPool) < 1 {
 		return math.MaxUint8, nil, nil, fmt.Errorf("nil conn in app")
@@ -74,20 +74,24 @@ func (a *App) unwrapMsg() (cmdNo uint8, req, resp proto.Message, err error) {
 	if ok {
 		//msg[0] is cmd number
 		//msg[1:] is main msg
-		err = proto.Unmarshal(msg[1:], req)
+		err = proto.Unmarshal(msg[1:], req.(proto.Message))
 		if err != nil {
 			return math.MaxUint8, nil, nil, fmt.Errorf("unmarshal req error")
 		}
+	} else { //default type: []byte
+		reqPointer := &[]byte{}
+		*reqPointer = msg[1:]
+		req = reqPointer
 	}
 	respValue := reflect.New(reflect.Indirect(reflect.ValueOf(handlerMap[cmdNo].Resp)).Type()).Interface()
 	resp, ok = respValue.(proto.Message)
-	if !ok {
-		return math.MaxUint8, nil, nil, fmt.Errorf("parse resp type error")
+	if !ok { //default *[]byte
+		resp = respValue.(*[]byte)
 	}
 	return
 }
 
-func (a *App) wrap(msg proto.Message) error {
+func (a *App) wrap(cmdNo uint8, msg interface{}) error {
 	if a.Socket == nil || len(a.Socket.ConnClientPool) < 1 {
 		return fmt.Errorf("nil conn in app")
 	}
@@ -95,9 +99,16 @@ func (a *App) wrap(msg proto.Message) error {
 	now use the last conn
 	and no lock to the pool
 	*/
-	respData, err := proto.Marshal(msg)
-	if err != nil {
-		return err
+	resp, ok := msg.(proto.Message)
+	var respData []byte
+	var err error
+	if ok {
+		respData, err = proto.Marshal(resp)
+		if err != nil {
+			return fmt.Errorf("marshal resp err: ", err)
+		}
+	} else { //default type: []byte
+		respData = *(msg.(*[]byte))
 	}
 	err = a.Socket.ConnClientPool[len(a.Socket.ConnClientPool)-1].Write(respData)
 	if err != nil {
