@@ -2,6 +2,8 @@ package app
 
 import (
 	"fmt"
+	"os"
+	"time"
 
 	"github.com/wh-servers/tcp_app/config"
 	"github.com/wh-servers/tcp_app/socket"
@@ -11,6 +13,7 @@ var handlerMap = map[uint8]*Handler{}
 
 type App struct {
 	Socket *socket.Socket
+	isStop bool
 }
 
 func NewApp() *App {
@@ -30,34 +33,47 @@ func (a *App) Run(addr string) error {
 		return fmt.Errorf("no socket inited")
 	}
 	err := a.Socket.Listen(addr)
-	for {
+	for !a.isStop {
 		conn, err := a.Socket.Listener.Accept()
 		if err != nil {
 			fmt.Printf("accept request err: %v, connection is: %v\n", err, conn)
 			continue
 		}
-		newConnClient := socket.ConnClient{
+		newConnClient := &socket.ConnClient{
 			Conn:         conn,
 			ReadTimeout:  a.Socket.ReadTimeout,
 			WriteTimeout: a.Socket.WriteTimeout,
+			ConnTimeout:  a.Socket.ConnTimeout,
 		}
-		//todo: reuse conn position
-		a.Socket.ConnClientPool = append(a.Socket.ConnClientPool, newConnClient)
+		a.Socket.ConnClientPool <- newConnClient
 		go a.Dispatcher()
 	}
 	return err
 }
 
-func (a *App) Stop() {
-	//todo, stop gracefully
+func (a *App) Stop(s os.Signal) {
+	a.isStop = true
+	fmt.Println("server exit with signal: ", s)
 }
 
 //dispatch connections to different workers
 //first come first out
-func (a *App) Dispatcher() error {
+func (a *App) Dispatcher() (err error) {
 	//todo: add multi workers, now consider only one worker
-	err := a.HandlerManager()
-	return err
+	connClient := <-a.Socket.ConnClientPool
+	//todo: add heartbeat
+	ticker := time.Tick(connClient.ConnTimeout)
+	defer func() {
+		fmt.Printf("connection: %v closed due to timeout\n", connClient)
+	}()
+	for {
+		select {
+		case <-ticker:
+			return
+		default:
+			err = HandlerManager(connClient)
+		}
+	}
 }
 
 func (a *App) initSocket(conf config.Config) error {

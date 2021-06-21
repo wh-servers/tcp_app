@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/wh-servers/tcp_app/socket"
 )
 
 // ProcessorFunc is registered api handler
@@ -21,7 +22,7 @@ type Handler struct {
 
 var handlerMtx = sync.Mutex{}
 
-func (a *App) RegisterHandler(handlers ...*Handler) error {
+func RegisterHandler(handlers ...*Handler) error {
 	for _, h := range handlers {
 		handlerMtx.Lock()
 		//reqType := reflect.TypeOf(h.Req)
@@ -36,31 +37,27 @@ func (a *App) RegisterHandler(handlers ...*Handler) error {
 }
 
 //distinguish different cmd and use different handler
-func (a *App) HandlerManager() error {
-	cmdNo, req, resp, err := a.unwrapMsg()
+func HandlerManager(connClient *socket.ConnClient) error {
+	cmdNo, req, resp, err := unwrapMsg(connClient)
 	if err != nil {
 		return err
 	}
-	//todo: use worker to process handler. worker(handlerMap[reqData[0]],reqData[1:], &respData)
+	//todo: use worker to process handler. worker(handler,req, resp)
 	if handler, ok := handlerMap[cmdNo]; ok {
 		if err := handler.Processor(context.Background(), req, resp); err != nil {
 			return fmt.Errorf("process req err: ", err)
 		}
 	}
-	err = a.wrap(cmdNo, resp)
+	err = wrap(resp, connClient)
 	return err
 }
 
-func (a *App) unwrapMsg() (cmdNo uint8, req, resp interface{}, err error) {
+func unwrapMsg(connClient *socket.ConnClient) (cmdNo uint8, req, resp interface{}, err error) {
 	var msg []byte
-	if a.Socket == nil || len(a.Socket.ConnClientPool) < 1 {
+	if connClient == nil {
 		return math.MaxUint8, nil, nil, fmt.Errorf("nil conn in app")
 	}
-	/*todo: find correct conn, now only consider one connection
-	now use the last conn
-	and no lock to the pool
-	*/
-	err = a.Socket.ConnClientPool[len(a.Socket.ConnClientPool)-1].Read(&msg)
+	err = connClient.Read(&msg)
 	if err != nil {
 		return math.MaxUint8, nil, nil, fmt.Errorf("read msg from conn err: ", err)
 	}
@@ -96,14 +93,10 @@ func (a *App) unwrapMsg() (cmdNo uint8, req, resp interface{}, err error) {
 	return
 }
 
-func (a *App) wrap(cmdNo uint8, msg interface{}) error {
-	if a.Socket == nil || len(a.Socket.ConnClientPool) < 1 {
+func wrap(msg interface{}, connClient *socket.ConnClient) error {
+	if connClient == nil {
 		return fmt.Errorf("nil conn in app")
 	}
-	/*todo: find correct conn, now only consider one connection
-	now use the last conn
-	and no lock to the pool
-	*/
 	resp, ok := msg.(proto.Message)
 	var respData []byte
 	var err error
@@ -115,7 +108,7 @@ func (a *App) wrap(cmdNo uint8, msg interface{}) error {
 	} else { //default type: []byte
 		respData = *(msg.(*[]byte))
 	}
-	err = a.Socket.ConnClientPool[len(a.Socket.ConnClientPool)-1].Write(respData)
+	err = connClient.Write(respData)
 	if err != nil {
 		return fmt.Errorf("write msg to conn err: ", err)
 	}

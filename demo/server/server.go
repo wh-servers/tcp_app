@@ -3,6 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/wh-servers/tcp_app/app"
 	"github.com/wh-servers/tcp_app/config"
@@ -10,20 +13,20 @@ import (
 )
 
 var (
-	conf = flag.String("conf", "config.yml", "config")
-	addr = flag.String("addr", ":8889", "listen addr")
+	conf       = flag.String("conf", "config.yml", "config")
+	addr       = flag.String("addr", ":8889", "listen addr")
+	sigChannel = make(chan os.Signal, 1)
 )
 
 func main() {
 	flag.Parse()
 	newApp := app.NewApp()
-	defer newApp.Stop()
 	configure := config.NewConfig()
 	err := configure.Load(*conf)
 	fmt.Println("loaded config, err: ", err)
 	err = newApp.Init(configure)
 	fmt.Println("inited app, err: ", err)
-	err = newApp.RegisterHandler(
+	err = app.RegisterHandler(
 		&app.Handler{
 			CmdNo:     uint8(app_pb.CmdNo_mock_0),
 			Processor: Mock_0_Process,
@@ -44,6 +47,10 @@ func main() {
 		},
 	)
 	fmt.Println("registered hanlder, err: ", err)
-	err = newApp.Run(*addr)
+	go newApp.Run(*addr)
+	signal.Notify(sigChannel, os.Interrupt, os.Kill, syscall.SIGTERM)
+	s := <-sigChannel
+	// exit program
+	newApp.Stop(s)
 	fmt.Println(err)
 }
