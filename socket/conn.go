@@ -10,8 +10,8 @@ import (
 )
 
 type ConnClient struct {
-	Conn net.Conn
-	//todo: timeout is not in use yet
+	Conn         net.Conn
+	ConnTimeout  time.Duration
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 }
@@ -23,12 +23,19 @@ func (c *ConnClient) Read(msg *[]byte) error {
 	if c == nil || c.Conn == nil {
 		return fmt.Errorf("nil connection")
 	}
+	err := c.Conn.SetReadDeadline(time.Now().Add(c.ReadTimeout))
+	if err != nil {
+		return fmt.Errorf("SetReadDeadline err: ", err)
+	}
 	//read main msg length
-	err := binary.Read(c.Conn, binary.LittleEndian, &resLen)
+	err = binary.Read(c.Conn, binary.LittleEndian, &resLen)
 	if err != nil {
 		return err
 	}
 	//read main msg
+	if resLen < 0 {
+		resLen = 0
+	}
 	buf := make([]byte, resLen)
 	_, err = io.ReadFull(c.Conn, buf)
 	if err != nil {

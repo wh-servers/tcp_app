@@ -31,6 +31,6 @@ func (w *WriteTimeoutOption) Apply(s *Socket) error {
 }
 
 func (c *ConnectionOption) Apply(s *Socket) error {
-	s.ConnClientPool = make([]ConnClient, c.PoolSize)
+	s.PoolSize = c.PoolSize
 	return nil
 }

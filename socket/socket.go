@@ -5,12 +5,18 @@ import (
 	"time"
 )
 
+var defaultPoolSize int32 = 16
+var defaultReadTimeout = 10 * time.Second
+var defaultConnTimeout = 5 * time.Second
+
 type Socket struct {
-	ConnClientSingle ConnClient
-	ConnClientPool   []ConnClient
-	Listener         net.Listener
-	ReadTimeout      time.Duration
-	WriteTimeout     time.Duration
+	//ConnClientPool usage: can use load balancer to keep connection live
+	ConnClientPool chan *ConnClient
+	PoolSize       int32
+	Listener       net.Listener
+	ReadTimeout    time.Duration
+	WriteTimeout   time.Duration
+	ConnTimeout    time.Duration
 }
 
 func NewSocket() *Socket {
@@ -23,6 +29,18 @@ func (s *Socket) Init(options ...Option) error {
 			return err
 		}
 	}
+	//set pool size
+	if s.PoolSize <= 0 || s.PoolSize > defaultPoolSize {
+		s.PoolSize = defaultPoolSize
+	}
+	s.ConnClientPool = make(chan *ConnClient, s.PoolSize)
+	//set conn timeout
+	if s.ReadTimeout <= 0 || s.ReadTimeout > defaultReadTimeout {
+		s.ReadTimeout = defaultReadTimeout
+	}
+	if s.ConnTimeout <= 0 || s.ConnTimeout > defaultConnTimeout {
+		s.ConnTimeout = defaultConnTimeout
+	}
 	return nil
 }
 
@@ -32,9 +50,13 @@ func (s *Socket) Dial(addr string) error {
 	if err != nil {
 		return err
 	}
-	s.ConnClientSingle = ConnClient{
-		Conn: conn,
+	connClient := &ConnClient{
+		Conn:         conn,
+		ReadTimeout:  s.ReadTimeout,
+		WriteTimeout: s.WriteTimeout,
+		ConnTimeout:  s.ConnTimeout,
 	}
+	s.ConnClientPool <- connClient
 	return err
 }
 
@@ -49,5 +71,12 @@ func (s *Socket) Listen(addr string) error {
 }
 
 func (s *Socket) Close() error {
-	return s.ConnClientSingle.Close()
+	for {
+		select {
+		case conn := <-s.ConnClientPool:
+			conn.Close()
+		default:
+			return nil
+		}
+	}
 }

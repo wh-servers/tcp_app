@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	app_pb "github.com/wh-servers/tcp_app/gen"
@@ -42,12 +43,17 @@ func main() {
 		fmt.Println("no cmd registered")
 		return
 	}
-	err = skt.ConnClientSingle.Write(req)
-	fmt.Println("wrote req, err: ", err)
-	//receive from server
-	var feedback []byte
-	err = skt.ConnClientSingle.Read(&feedback)
-	fmt.Printf("read res: %s, err: %v", string(feedback), err)
+	connClient := <-skt.ConnClientPool
+	for i := 0; i < 2; i++ {
+		err = connClient.Write(req)
+		fmt.Println("wrote req, err: ", err)
+		//receive from server
+		var feedback []byte
+		err = connClient.Read(&feedback)
+		fmt.Println("read res: %s, err: %v", string(feedback), err)
+		fmt.Println("=======")
+		time.Sleep(1 * time.Second)
+	}
 }
 
 func registerRequestHandler() error {
