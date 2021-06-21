@@ -45,7 +45,7 @@ func HandlerManager(connClient *socket.ConnClient) error {
 	//todo: use worker to process handler. worker(handler,req, resp)
 	if handler, ok := handlerMap[cmdNo]; ok {
 		if err := handler.Processor(context.Background(), req, resp); err != nil {
-			return fmt.Errorf("process req err: ", err)
+			return fmt.Errorf("process req err: %v", err)
 		}
 	}
 	err = wrap(resp, connClient)
@@ -59,7 +59,7 @@ func unwrapMsg(connClient *socket.ConnClient) (cmdNo uint8, req, resp interface{
 	}
 	err = connClient.Read(&msg)
 	if err != nil {
-		return math.MaxUint8, nil, nil, fmt.Errorf("read msg from conn err: ", err)
+		return math.MaxUint8, nil, nil, fmt.Errorf("read msg from conn err: %v", err)
 	}
 	if len(msg) < 2 {
 		return math.MaxUint8, nil, nil, fmt.Errorf("no msg from conn")
@@ -103,14 +103,14 @@ func wrap(msg interface{}, connClient *socket.ConnClient) error {
 	if ok {
 		respData, err = proto.Marshal(resp)
 		if err != nil {
-			return fmt.Errorf("marshal resp err: ", err)
+			return fmt.Errorf("marshal resp err: %v", err)
 		}
 	} else { //default type: []byte
 		respData = *(msg.(*[]byte))
 	}
 	err = connClient.Write(respData)
 	if err != nil {
-		return fmt.Errorf("write msg to conn err: ", err)
+		return fmt.Errorf("write msg to conn err: %v", err)
 	}
 	return err
 }

@@ -7,7 +7,7 @@ import (
 
 var defaultPoolSize int32 = 16
 var defaultReadTimeout = 10 * time.Second
-var defaultConnTimeout = 5 * time.Second
+var defaultConnTimeout = 60 * time.Second
 
 type Socket struct {
 	//ConnClientPool usage: can use load balancer to keep connection live

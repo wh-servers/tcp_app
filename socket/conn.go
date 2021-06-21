@@ -25,7 +25,7 @@ func (c *ConnClient) Read(msg *[]byte) error {
 	}
 	err := c.Conn.SetReadDeadline(time.Now().Add(c.ReadTimeout))
 	if err != nil {
-		return fmt.Errorf("SetReadDeadline err: ", err)
+		return fmt.Errorf("SetReadDeadline err: %v", err)
 	}
 	//read main msg length
 	err = binary.Read(c.Conn, binary.LittleEndian, &resLen)
@@ -39,7 +39,7 @@ func (c *ConnClient) Read(msg *[]byte) error {
 	buf := make([]byte, resLen)
 	_, err = io.ReadFull(c.Conn, buf)
 	if err != nil {
-		return fmt.Errorf("read from conn error: ", err)
+		return fmt.Errorf("read from conn error: %v", err)
 	}
 	*msg = buf
 	return err
