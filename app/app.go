@@ -34,18 +34,17 @@ func (a *App) Run(addr string) error {
 	}
 	err := a.Socket.Listen(addr)
 	for !a.isStop {
-		conn, err := a.Socket.Listener.Accept()
+		conn, err := a.Socket.Listener.AcceptTCP()
 		if err != nil {
 			fmt.Printf("accept request err: %v, connection is: %v\n", err, conn)
 			continue
 		}
-		newConnClient := &socket.ConnClient{
-			Conn:         conn,
-			ReadTimeout:  a.Socket.ReadTimeout,
-			WriteTimeout: a.Socket.WriteTimeout,
-			ConnTimeout:  a.Socket.ConnTimeout,
+		connClient := socket.NewConnClient()
+		err = connClient.Init(a.Socket, conn)
+		if err != nil {
+			return err
 		}
-		a.Socket.ConnClientPool <- newConnClient
+		a.Socket.ConnClientPool <- connClient
 		go a.Dispatcher()
 	}
 	return err
@@ -63,12 +62,15 @@ func (a *App) Dispatcher() (err error) {
 	connClient := <-a.Socket.ConnClientPool
 	//todo: add heartbeat
 	ticker := time.Tick(connClient.ConnTimeout)
-	defer func() {
-		fmt.Printf("connection: %v closed due to timeout\n", connClient)
-	}()
 	for {
 		select {
 		case <-ticker:
+			fmt.Printf("connection: %v closed due to timeout\n", connClient)
+			connClient.IsDead <- true
+			return
+		case <-connClient.IsDead:
+			fmt.Printf("connection: %v closed due to keep alive fail\n", connClient)
+			connClient.IsDead <- true
 			return
 		default:
 			err = HandlerManager(connClient)

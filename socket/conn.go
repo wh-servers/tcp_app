@@ -10,10 +10,33 @@ import (
 )
 
 type ConnClient struct {
-	Conn         net.Conn
+	Conn         *net.TCPConn
+	IsDead       chan bool
 	ConnTimeout  time.Duration
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
+}
+
+func NewConnClient() *ConnClient {
+	return &ConnClient{}
+}
+
+func (c *ConnClient) Init(s *Socket, conn *net.TCPConn) error {
+	c.Conn = conn
+	c.ReadTimeout = s.ReadTimeout
+	c.WriteTimeout = s.WriteTimeout
+	c.ConnTimeout = s.ConnTimeout
+	c.IsDead = make(chan bool, 1)
+	//set keep alive
+	//err := conn.SetKeepAlive(s.KeepAlive)
+	err := conn.SetKeepAlive(true)
+	if err != nil {
+		return err
+	}
+	//e.g. conn break after: 5 sec + 8 * 5 sec
+	//err = conn.SetKeepAlivePeriod(s.KeepAlivePeriod)
+	err = conn.SetKeepAlivePeriod(2 * time.Second)
+	return err
 }
 
 //first 4 bytes are to indicate the main msg length. the length except these 4 bytes
@@ -29,7 +52,11 @@ func (c *ConnClient) Read(msg *[]byte) error {
 	}
 	//read main msg length
 	err = binary.Read(c.Conn, binary.LittleEndian, &resLen)
+	fmt.Println("debuggg: msg", resLen)
 	if err != nil {
+		//if err == io.EOF {
+		//	c.IsDead <- true
+		//}
 		return err
 	}
 	//read main msg

@@ -50,9 +50,9 @@ func main() {
 		//receive from server
 		var feedback []byte
 		err = connClient.Read(&feedback)
-		fmt.Println("read res: %s, err: %v", string(feedback), err)
+		fmt.Printf("read res: %s, err: %v\n", string(feedback), err)
 		fmt.Println("=======")
-		time.Sleep(1 * time.Second)
+		time.Sleep(10 * time.Second)
 	}
 }
 
