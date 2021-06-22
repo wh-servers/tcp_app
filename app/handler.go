@@ -25,10 +25,9 @@ var handlerMtx = sync.Mutex{}
 func RegisterHandler(handlers ...*Handler) error {
 	for _, h := range handlers {
 		handlerMtx.Lock()
-		//reqType := reflect.TypeOf(h.Req)
-		//respType := reflect.TypeOf(h.Resp)
-		/*todo: according to different reqType, to assign to different queues,
-		different queues need different worker number, important handler need more queues
+		/*
+			todo: according to different reqType, to assign to different queues,
+			different queues need different worker number, important handler need more queues
 		*/
 		handlerMap[h.CmdNo] = h
 		handlerMtx.Unlock()
