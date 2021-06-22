@@ -44,7 +44,9 @@ func main() {
 		return
 	}
 	connClient := <-skt.ConnClientPool
-	for i := 0; i < 2; i++ {
+	time.Sleep(10 * time.Second)
+	for i := 0; i < 1; i++ {
+		//todo: add retry and recreate client if err
 		err = connClient.Write(req)
 		fmt.Println("wrote req, err: ", err)
 		//receive from server
@@ -52,8 +54,9 @@ func main() {
 		err = connClient.Read(&feedback)
 		fmt.Printf("read res: %s, err: %v\n", string(feedback), err)
 		fmt.Println("=======")
-		time.Sleep(10 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
+	time.Sleep(1000 * time.Second)
 }
 
 func registerRequestHandler() error {

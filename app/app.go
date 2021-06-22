@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/wh-servers/tcp_app/config"
 	"github.com/wh-servers/tcp_app/socket"
@@ -60,22 +59,7 @@ func (a *App) Stop(s os.Signal) {
 func (a *App) Dispatcher() (err error) {
 	//todo: add multi workers, now consider only one worker
 	connClient := <-a.Socket.ConnClientPool
-	//todo: add heartbeat
-	ticker := time.Tick(connClient.ConnTimeout)
-	for {
-		select {
-		case <-ticker:
-			fmt.Printf("connection: %v closed due to timeout\n", connClient)
-			connClient.IsDead <- true
-			return
-		case <-connClient.IsDead:
-			fmt.Printf("connection: %v closed due to keep alive fail\n", connClient)
-			connClient.IsDead <- true
-			return
-		default:
-			err = HandlerManager(connClient)
-		}
-	}
+	return HandlerManager(connClient)
 }
 
 func (a *App) initSocket(conf config.Config) error {

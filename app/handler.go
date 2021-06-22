@@ -3,10 +3,10 @@ package app
 import (
 	"context"
 	"fmt"
-	"io"
 	"math"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/wh-servers/tcp_app/socket"
@@ -38,37 +38,51 @@ func RegisterHandler(handlers ...*Handler) error {
 
 //distinguish different cmd and use different handler
 func HandlerManager(connClient *socket.ConnClient) error {
-	cmdNo, req, resp, err := unwrapMsg(connClient)
-	if err != nil {
-		return err
-	}
-	//todo: use worker to process handler. worker(handler,req, resp)
-	if handler, ok := handlerMap[cmdNo]; ok {
-		if err := handler.Processor(context.Background(), req, resp); err != nil {
-			return fmt.Errorf("process req err: %v", err)
+	var err error
+	ticker := time.NewTicker(connClient.ConnTimeout)
+	go func() {
+		for {
+			cmdNo, req, resp, e := unwrapMsg(connClient)
+			if e != nil {
+				err = e
+				connClient.IsDead <- true
+				break
+			}
+			if handler, ok := handlerMap[cmdNo]; ok {
+				if e := handler.Processor(context.Background(), req, resp); e != nil {
+					err = e
+					connClient.IsDead <- true
+					break
+				}
+			}
+			e = wrap(resp, connClient)
+			if e != nil {
+				err = e
+				connClient.IsDead <- true
+				break
+			}
+			ticker.Reset(connClient.ConnTimeout)
 		}
+	}()
+	select {
+	case <-ticker.C:
+		fmt.Printf("conn %v closed due to no request for %d seconds long\n", connClient, connClient.ConnTimeout/time.Second)
+	case <-connClient.IsDead:
+		fmt.Printf("conn %v closed due to err happen or client close\n, err: %v\n", connClient, err)
 	}
-	err = wrap(resp, connClient)
-	return err
+	return connClient.Close()
 }
 
-func unwrapMsg(connClient *socket.ConnClient) (cmdNo uint8, req, resp interface{}, err error) {
+func unwrapMsg(connClient *socket.ConnClient) (cmdNo uint8, req, resp interface{}, e error) {
 	var msg []byte
-	blocker := make(chan bool, 1)
+	var err error
 	if connClient == nil {
 		return math.MaxUint8, nil, nil, fmt.Errorf("nil conn in app")
 	}
-	go func(blocker *chan bool) {
-		err = connClient.Read(&msg)
-		if err != nil && err != io.EOF {
-			fmt.Printf("read msg from conn err: %v\n", err)
-			//todo: connClient.IsDead <- true
-		}
-		if err == nil {
-			*blocker <- true
-		}
-	}(&blocker)
-	<-blocker
+	err = connClient.Read(&msg)
+	if err != nil {
+		return math.MaxUint8, nil, nil, fmt.Errorf("read msg err : %v", err)
+	}
 	if len(msg) < 2 {
 		return math.MaxUint8, nil, nil, fmt.Errorf("wrong msg format in conn")
 	}
@@ -114,6 +128,9 @@ func wrap(msg interface{}, connClient *socket.ConnClient) error {
 			return fmt.Errorf("marshal resp err: %v", err)
 		}
 	} else { //default type: []byte
+		if msg == nil {
+			return nil
+		}
 		respData = *(msg.(*[]byte))
 	}
 	err = connClient.Write(respData)

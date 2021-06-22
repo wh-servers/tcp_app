@@ -27,16 +27,16 @@ func (c *ConnClient) Init(s *Socket, conn *net.TCPConn) error {
 	c.WriteTimeout = s.WriteTimeout
 	c.ConnTimeout = s.ConnTimeout
 	c.IsDead = make(chan bool, 1)
-	//set keep alive
+	//set keep alive (deprecated, can use connTimeout instead)
 	//err := conn.SetKeepAlive(s.KeepAlive)
-	err := conn.SetKeepAlive(true)
-	if err != nil {
-		return err
-	}
+	//err := conn.SetKeepAlive(true)
+	//if err != nil {
+	//	return err
+	//}
 	//e.g. conn break after: 5 sec + 8 * 5 sec
 	//err = conn.SetKeepAlivePeriod(s.KeepAlivePeriod)
-	err = conn.SetKeepAlivePeriod(2 * time.Second)
-	return err
+	//err = conn.SetKeepAlivePeriod(100 * time.Second)
+	return nil
 }
 
 //first 4 bytes are to indicate the main msg length. the length except these 4 bytes
@@ -46,17 +46,9 @@ func (c *ConnClient) Read(msg *[]byte) error {
 	if c == nil || c.Conn == nil {
 		return fmt.Errorf("nil connection")
 	}
-	err := c.Conn.SetReadDeadline(time.Now().Add(c.ReadTimeout))
-	if err != nil {
-		return fmt.Errorf("SetReadDeadline err: %v", err)
-	}
 	//read main msg length
-	err = binary.Read(c.Conn, binary.LittleEndian, &resLen)
-	fmt.Println("debuggg: msg", resLen)
+	err := binary.Read(c.Conn, binary.LittleEndian, &resLen)
 	if err != nil {
-		//if err == io.EOF {
-		//	c.IsDead <- true
-		//}
 		return err
 	}
 	//read main msg
