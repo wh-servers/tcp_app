@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"io"
 	"math"
 	"reflect"
 	"sync"
@@ -25,10 +26,9 @@ var handlerMtx = sync.Mutex{}
 func RegisterHandler(handlers ...*Handler) error {
 	for _, h := range handlers {
 		handlerMtx.Lock()
-		//reqType := reflect.TypeOf(h.Req)
-		//respType := reflect.TypeOf(h.Resp)
-		/*todo: according to different reqType, to assign to different queues,
-		different queues need different worker number, important handler need more queues
+		/*
+			todo: according to different reqType, to assign to different queues,
+			different queues need different worker number, important handler need more queues
 		*/
 		handlerMap[h.CmdNo] = h
 		handlerMtx.Unlock()
@@ -54,15 +54,23 @@ func HandlerManager(connClient *socket.ConnClient) error {
 
 func unwrapMsg(connClient *socket.ConnClient) (cmdNo uint8, req, resp interface{}, err error) {
 	var msg []byte
+	blocker := make(chan bool, 1)
 	if connClient == nil {
 		return math.MaxUint8, nil, nil, fmt.Errorf("nil conn in app")
 	}
-	err = connClient.Read(&msg)
-	if err != nil {
-		return math.MaxUint8, nil, nil, fmt.Errorf("read msg from conn err: %v", err)
-	}
+	go func(blocker *chan bool) {
+		err = connClient.Read(&msg)
+		if err != nil && err != io.EOF {
+			fmt.Printf("read msg from conn err: %v\n", err)
+			//todo: connClient.IsDead <- true
+		}
+		if err == nil {
+			*blocker <- true
+		}
+	}(&blocker)
+	<-blocker
 	if len(msg) < 2 {
-		return math.MaxUint8, nil, nil, fmt.Errorf("no msg from conn")
+		return math.MaxUint8, nil, nil, fmt.Errorf("wrong msg format in conn")
 	}
 	cmdNo = msg[0]
 	var ok bool
