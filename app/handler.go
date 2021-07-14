@@ -40,6 +40,7 @@ func RegisterHandler(handlers ...*Handler) error {
 func HandlerManager(connClient *socket.ConnClient) error {
 	var err error
 	ticker := time.NewTicker(connClient.ConnTimeout)
+	defer ticker.Stop()
 	go func() {
 		for {
 			cmdNo, req, resp, e := unwrapMsg(connClient)
