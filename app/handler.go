@@ -39,8 +39,8 @@ func RegisterHandler(handlers ...*Handler) error {
 //distinguish different cmd and use different handler
 func HandlerManager(connClient *socket.ConnClient) error {
 	var err error
-	ticker := time.NewTicker(connClient.ConnTimeout)
-	defer ticker.Stop()
+	timer := time.NewTimer(connClient.ConnTimeout)
+	defer timer.Stop()
 	go func() {
 		for {
 			cmdNo, req, resp, e := unwrapMsg(connClient)
@@ -62,11 +62,11 @@ func HandlerManager(connClient *socket.ConnClient) error {
 				connClient.IsDead <- true
 				break
 			}
-			ticker.Reset(connClient.ConnTimeout)
+			timer.Reset(connClient.ConnTimeout)
 		}
 	}()
 	select {
-	case <-ticker.C:
+	case <-timer.C:
 		fmt.Printf("conn %v closed due to no request for %d seconds long\n", connClient, connClient.ConnTimeout/time.Second)
 	case <-connClient.IsDead:
 		fmt.Printf("conn %v closed due to err happen or client close\n, err: %v\n", connClient, err)
